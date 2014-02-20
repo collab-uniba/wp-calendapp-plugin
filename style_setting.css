@@ -1,0 +1,37 @@
+@charset "utf-8";
+/* CSS Document */
+
+
+.data_precedente td {
+    text-decoration:line-through;
+}
+
+.Alert_green    {
+    color:#090;
+    font-style:inherit;
+    text-align: center;
+}
+
+.Alert_red
+{
+    color:#F00;
+    font-style:inherit;
+    text-align: center;
+}
+
+.Alert_orange   {
+    color:#F60;
+    font-style:inherit;
+    text-align: center;
+}
+
+#alert{
+    font-family: monospace;
+    font-style: italic;
+    text-align: center;
+    font-weight: bold;
+}
+
+.widefat{
+    width:100%;   
+}

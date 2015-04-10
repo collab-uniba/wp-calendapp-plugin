@@ -64,7 +64,7 @@ function Insert_event_form()
                             } ?>   	
                     </select>	
                     <select id="Ins_Minutes_time">
-                   <?php  for($i=0;$i<=60;$i++)  {
+                   <?php  for($i=0;$i<=59;$i++)  {
 				if($i<10)
                                     echo "<option value='0$i'>0".  $i."</option>"; 
 				else

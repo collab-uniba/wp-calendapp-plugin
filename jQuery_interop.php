@@ -1,34 +1,39 @@
 <?php
 
-include_once( 'Zend'.DIRECTORY_SEPARATOR.'Gdata'.DIRECTORY_SEPARATOR.'ClientLogin.php');
-include_once( 'Zend'.DIRECTORY_SEPARATOR.'Gdata'.DIRECTORY_SEPARATOR.'Calendar.php');
-include_once( 'Zend'.DIRECTORY_SEPARATOR.'Gdata'.DIRECTORY_SEPARATOR.'Calendar'.DIRECTORY_SEPARATOR.'EventQuery.php');
+require_once 'google-api-php-client/src/Google/Client.php';
+require_once 'google-api-php-client/src/Google/Service/Calendar.php';
+require_once 'google-api-php-client/autoload.php';
 require_once 'Load_Write.php';
+require_once 'Authentication.php';
 
 $richiesta = $_POST['Richiesta'];
 
 switch($richiesta)  {
 	
     /*Si attiva quando viene richiesta la scrittura delle credenziali di accesso all'account di Google.*/
-    case 0:	
-	$username = $_POST['Username'];
-	$password = $_POST['Password'];
-        $calendar = $_POST['Calendar'];
+case 0:	
+	$client_id = $_POST['Client_id'];
+	$client_secret = $_POST['Client_secret'];
 	try {
-            Write_google_access_data($username,$password,$calendar);
-            $gdata = Gconnect();
-            if(isset($gdata))
-                print("<p class='Alert_green'>Connessione riuscita</p>");
-        } catch (Zend_Gdata_App_HttpException $e){
-            print("<p class='Alert_red'>Errore: Calendario non trovato</p>");
-        } catch (Zend_Gdata_App_AuthException $e){
-            print("<p class='Alert_red'>Login fallito: Credenziali Google non corrette</p>");
-        }   catch (Zend_Gdata_App_Exception $e) {
-            print("<p class='Alert_red'>Errore: ".$e->getMessage()."</p>");			
+            Write_google_access_data($client_id,$client_secret);
+            
+            //creo l' uri togliendo il sito e lasciando il percorso standard del file raggiungibile tramite url
+			$uri_full=plugins_url(null, __FILE__);
+			$uri_full=explode("/wp-content/",$uri_full);
+			$pre_uri=explode("/",$uri_full[0]);
+			for ($i=0;$i< count($pre_uri)-1;$i++) {
+				$uri=$uri.$pre_uri[$i]."/";
+			}
+			$uri=$uri."wp-content/".$uri_full[1]."/Authentication.php";
+		
+            Write_path($uri);
+            Gconnect();
+            
         } catch (Exception $e) {
             print("<p class='Alert_red'>Errore: ".$e->getMessage()."</p>");
         }       
     break;
+
 		
     /*
     Si attiva quando viene richiesto l'update di un evento creato in precedenza.
@@ -68,32 +73,32 @@ switch($richiesta)  {
         $endTime = substr($d_end->format('H:i:s'),0,5);
         
         try{
-            $gdata = Gconnect();
+    		$gdata = calendar_connect();
             $service = $gdata['service'];
-            $url = $gdata['url'];
-									
-            // Create a new entry using the calendar service's magic factory method
-            $event= $service->newEventEntry();
+            $id = $gdata['id'];						
+            // Create a new entry
+            $event = new Google_Service_Calendar_Event();
+            
             // Populate the event with the desired information
             // Note that each attribute is crated as an instance of a matching class
-            $event->title = $service->newTitle( $tipo . ' - ' . $nome);
-            $event->where = array($service->newWhere($luogo));
-            $event->content = $service->newContent( $note );			 
-            $when = $service->newWhen();
-            $when->startTime = "{$startDate}T{$startTime}:00.000{$tzOffset}:00";
-            $when->endTime = "{$endDate}T{$endTime}:00.000{$tzOffset}:00";
-            $event->when = array($when);
+            
+            $event->setSummary($tipo . ' - ' . $nome);
+            $event->setDescription($note);
+			$event->setLocation($luogo);
+			
+            $start = new Google_Service_Calendar_EventDateTime();
+    		$start->setDateTime("{$startDate}T{$startTime}:00.000{$tzOffset}:00");
+    		$event->setStart($start);
+
+            $end = new Google_Service_Calendar_EventDateTime();
+    		$end->setDateTime("{$endDate}T{$endTime}:00.000{$tzOffset}:00");
+    		$event->setEnd($end);
+    			 
             // Upload the event to the calendar server
             // A copy of the event as it is recorded on the server is returned
-            $service->insertEvent($event,$url);
+            $createdEvent = $service->events->insert($id, $event);
             print("<p class='Alert_green'>Evento inserito con successo</p>");
-        }  catch (Zend_Gdata_App_HttpException $e){
-            print("<p class='Alert_red'>Errore: Calendario non trovato</p>");
-        } catch (Zend_Gdata_App_AuthException $e){
-            print("<p class='Alert_red'>Login fallito: Credenziali Google non corrette</p>");
-        }   catch (Zend_Gdata_App_Exception $e) {
-            print("<p class='Alert_red'>Errore: ".$e->getMessage()."</p>");
-        } catch (Exception $e) {
+        }   catch (Exception $e) {
             print("<p class='Alert_red'>Errore: ".$e->getMessage()."</p>");
         }
     break;	
@@ -101,7 +106,7 @@ switch($richiesta)  {
     /*Si attiva quando viene richiesta la scrittura dell'intervallo di visualizzazione degli eventi*/
     case 2:
         $start = $_POST['data_inizio'];
-	$end = $_POST['data_fine'];	
+		$end = $_POST['data_fine'];	
 	write_interval_date($start,$end);
     break; 	
     
@@ -109,19 +114,13 @@ switch($richiesta)  {
      Si attiva quando viene richiesta l'eliminazione di un evento creato in precedenza.
     */
     case 3:        
-        $href = $_POST['href'];    
+        $idevent = $_POST['href'];    
         try {
-            $gdata = Gconnect();
+            $gdata = calendar_connect();
             $service = $gdata['service'];
-            $url = $gdata['url'];        
-            $service->delete($href);
-        } catch (Zend_Gdata_App_HttpException $e){
-            print("<p class='Alert_red'>Errore: Calendario non trovato</p>");
-        } catch (Zend_Gdata_App_AuthException $e){
-            print("<p class='Alert_red'>Login fallito: Credenziali Google non corrette</p>");
-        } catch (Zend_Gdata_App_Exception $e) {
-            print("<p class='Alert_red'>Errore: ".$e->getMessage()."</p>");				
-	} catch (Exception $e) {
+            $id = $gdata['id'];     
+            $event=$service->events->delete($id, $idevent);
+        }  catch (Exception $e) {
             print("<p class='Alert_red'>Errore: ".$e->getMessage()."</p>");
         }       
     break;
@@ -134,30 +133,29 @@ switch($richiesta)  {
         $examTitle = $_POST['examTitle'];
         $backend = $_POST['backend'];
 	$today = new DateTime("now");
+	$events=array();
+	$event_list=array();
 	//Recupero delle date impostate dall'amministratore..
-        $interval_date = Load_interval_date();				
+        $interval_date = Load_interval_date(get_current_blog_id());				
 	$d_start = new DateTime($interval_date[0]);
 	$d_end = new DateTime($interval_date[1]);	
 	try {	
-            $gdata = Gconnect();
+            $gdata = calendar_connect();
             $service = $gdata['service'];
-            $url = $gdata['url'];                              
-            $query = $service->newEventQuery($url);
-            $query->setUser(NULL);						
-            $query->setVisibility(NULL);
-            $query->setProjection(NULL);						
-            $query->setOrderby('starttime');
-            $query->setSortOrder('descending');
-            $query->setMaxResults(500);
-            $query->setStartMin($interval_date[0]);
-            $query->setStartMax($interval_date[1]);							
+            $id = $gdata['id'];						
+            $eventsParam = array('singleEvents'=>True , 'maxResults'=>500 , 'orderBy'=>'startTime' , 'timeMin'=>$interval_date[0]."T00:00:00.000-00:00" , 'timeMax'=>$interval_date[1]."T00:00:00.000-00:00");
+			
+// loop through all events read from calendar
+
+
             // Retrieve the event list from the calendar server
-            $eventFeed = $service->getCalendarEventFeed($query);
+            $event_list = $service->events->listEvents($id,$eventsParam);
+			$events = $event_list->getItems();
             //Se recupero degli eventi inizio a definire la tabella..
             //Altrimenti mostro un messaggio per avvertire l'utente..
-            if(count($eventFeed) > 0)   {
+            if(count($event_list) > 0)   {
 		$i = 0 ; 
-		$eventi = count($eventFeed);	
+		$eventi = count($event_list);	
 		$materie_nome = array();
 		$materie = array();
 		$materie[0] = 'empty'; 
@@ -166,12 +164,13 @@ switch($richiesta)  {
 		/*
 		Per ogni evento recuperato 
 		Se presente comincio a dividere gli eventi in base alle materie di riferimento
-		l'array materie_nome conterrà i nomi delle materie che il sistema ha rilevato.
-		l'array materie conterrà tutti gli eventi riferiti alla materia il cui titolo è memorizzato 
+		l'array materie_nome conterrÃƒÂ  i nomi delle materie che il sistema ha rilevato.
+		l'array materie conterrÃƒÂ  tutti gli eventi riferiti alla materia il cui titolo ÃƒÂ¨ memorizzato 
 		nella stessa posizione dell'array 	materie.
 		*/	
-		foreach ($eventFeed as $event) {
-                	$titolo = explode(" - ",$event->title);
+		foreach ($events as $event) {
+					
+                	$titolo = explode(" - ",$event->getSummary());
 			if (strcasecmp($examTitle,$titolo[1]) == 0 || strcasecmp($examTitle ,"ALL") ==0 ) {	
                             $flag = FALSE; 
                             $indice = 0; 
@@ -198,17 +197,35 @@ switch($richiesta)  {
 		if(count($materie_nome) > 1)    {
 		//Per ogni materia estraggo l'array degli eventi
 		for($j=1;$j<count($materie_nome);$j++)  {
-                    $eventi = $materie[$j];							
+                    $eventi = $materie[$j];
+                    
+					
                     $htmltag .= "<table class='widefat'";
                     if ($backend) {
                         $htmltag.=" style='width:90%; margin:auto;'";
                         $width=" style='width:200px;'";
                     }
-                    $htmltag .= ">
+                    $htmltag .= ">";
+                    if ($backend==0) {
+                    $htmltag .= "<col style='width:16%'>
+        						<col style='width:21%'>
+        						<col style='width:10%'>
+								<col style='width:12%'>
+        						<col style='width:13%'>
+        						<col style='width:13%'>
+								<col style='width:15%'>";
+								}
+					$htmltag .= "			
                         <thead>
-                            <tr>
-                                <th colspan='8' style='text-align:center;font-size:16px; font-weight:bold;'>". $materie_nome[$j] ."</th>
-                            </tr>
+                            <tr><th colspan=";
+                                
+                            if ($backend) {
+                            	$htmltag.="'8'";
+                            	}
+                            	else  {
+                            	$htmltag.="'7'";
+                            	}
+							$htmltag .= " style='text-align:center;font-size:16px; font-weight:bold;'>". $materie_nome[$j] ."</th></tr>
                             <tr>
                                 <th>Appello</th>
                                 <th>Data appello</th>
@@ -223,13 +240,11 @@ switch($richiesta)  {
                             </thead>
                             <tbody>"; 				
                     //per ogni array degli eventi estraggo ogni singolo evento e popolo la tabella
-                    for($h=(count($eventi)-1);$h>=0;$h--)   {
-                        $evento = $eventi[$h];
-                        $tipologia = explode("-",$evento->title);
-                        foreach($evento->when as $quando)   {
-                            $temp_dt = explode(" ",$quando);
-                            $temp_dt_inizio =  explode("T",$temp_dt[1]);
-                            $temp_dt_fine = $p_fine = explode("T",$temp_dt[3]);
+                    	for ($h=0;$h<=(count($eventi)-1);$h++){
+                    	$event = $eventi[$h];
+                        $tipologia = explode("-",$event->getSummary());
+                            $temp_dt_inizio =  explode("T",$event->getStart()->getDateTime());
+                            $temp_dt_fine = explode("T",$event->getEnd()->getDateTime());
                             $d_event_start = new DateTime($temp_dt_inizio[0] . ' ' . substr($temp_dt_inizio[1],0,5) . ':00');
                             $d_event_end = new DateTime($temp_dt_fine[0] . ' ' . substr($temp_dt_fine[1],0,5) . ':00');
                             $diff =   round(abs($d_event_end->format('U') - $d_event_start->format('U'))) / (60*60);
@@ -241,10 +256,9 @@ switch($richiesta)  {
                             $mese =  get_Month_name(substr($d_event_start->format('d-m-Y'),3,2)); 
                             $date_def_inizio = $d_event_start->format("d-m-Y"); 
                             $ora_def =  $d_event_start->format('H:i'); 
-                            $note = $evento->content;
-                            foreach($evento->where as $dove)    {
-				$luogo = $dove; 	
-                            }
+                            $note = $event->getDescription();
+							$luogo = $event->getLocation(); 	
+                            //}
                             $class="";
                             if($d_event_start < $today)
                                 $class=" class='data_precedente'";
@@ -256,13 +270,19 @@ switch($richiesta)  {
                                 <td>". $luogo ."</td>
                                 <td>". $tipologia[0]  ."</td>
                                 <td>". $note ."</td>";
+                                
                             if ($backend)
-                                $htmltag .="<td style='text-decoration:none'><a href='#' name='".  substr($evento->id,(count($evento->id)-27))."' id='Link_Modifica' onclick=modifica_evento('". substr($evento->id,(count($evento->id)-27))."')>Modifica</a> |
-                                           <a href='#' name='".  substr($evento->id,(count($evento->id)-27))."' id='Link_Elimina' onclick=elimina_evento('". $evento->getEditLink()->href."')>Elimina</a></td>";
+                                $htmltag .="<td style='text-decoration:none'><a href='#' name='".  substr($event->getid(),(count($event->getid())-27))."' id='Link_Modifica' onclick=modifica_evento('". substr($event->getid(),(count($event->getid())-27))."')>Modifica</a> | <a href='#' name='".  substr($event->getid(),(count($event->getid())-27))."' id='Link_Elimina' onclick=elimina_evento('".substr($event->getid(),(count($event->getid())-27))."')>Elimina</a></td>";
                             $htmltag .="</tr>"; 					
-			}
-                    }
-                    $htmltag .= "<tbody><tfoot><tr><th colspan='8'></th></tr></tfoot></table><br />"; 
+                    	}
+                    $htmltag .= "</tbody><tfoot><tr><th colspan="; 
+                    if ($backend) {
+									$htmltag .= "'8'";
+								  }
+					else {
+                					$htmltag .= "'7'";
+                		 }
+                	$htmltag .= "></th></tr></tfoot></table><br />";
                 }
             }   else    {
 		$htmltag .= "<p class='Alert_orange'>Non sono presenti eventi di interesse educativo per la data impostata</p>";  																
@@ -271,13 +291,7 @@ switch($richiesta)  {
             $htmltag .= "<p class='Alert_orange'>Non sono presenti eventi per la data prevista</p>"; 
 	}//Fine if(count($eventFeed) > 0)
         print($htmltag);
-    } catch (Zend_Gdata_App_HttpException $e){
-        print("<p class='Alert_red'>Errore: Calendario non trovato</p>");
-    } catch (Zend_Gdata_App_AuthException $e){
-        print("<p class='Alert_red'>Login fallito: Credenziali Google non corrette</p>");
-    } catch (Zend_Gdata_App_Exception $e) {
-        print("<p class='Alert_red'>Errore: ".$e->getMessage()."</p>");				
-    } catch (Exception $e) {
+    }  catch (Exception $e) {
         print("<p class='Alert_red'>Errore: ".$e->getMessage()."</p>");				
     }		
     break;
@@ -285,25 +299,24 @@ switch($richiesta)  {
     /*Si attiva quando viene richiesta la visualizzazione dei dati di un singolo evento contrassegnato dal suo Id*/
     case 5:            
         try {    
-            $gdata = Gconnect();
+            $gdata = calendar_connect();
+
             $service = $gdata['service'];
-            $url = $gdata['url'];    
-            $eventURL = $url."/" . $_POST['Id'];
-            $event = $service->getCalendarEventEntry($eventURL);
-            $titolo_arr = explode(' - ',$event->title);
+            $id = $gdata['id'];  
+            $eventID = $_POST['Id'];
+            $event = $service->events->get($id, $eventID);
+            
+            $titolo_arr = explode(' - ',$event->getSummary());
             $titolo = $titolo_arr[1];
-            $luogo = $event->where[0];        
-            $temp_dt = explode(" ",$event->when[0]);
-            $temp_dt_inizio =  explode("T",$temp_dt[1]);
-            $temp_dt_fine = $p_fine = explode("T",$temp_dt[3]);	
+            $luogo = $event->getLocation();        
+			$temp_dt_inizio =  explode("T",$event->getStart()->getDateTime());
+            $temp_dt_fine = explode("T",$event->getEnd()->getDateTime());
+            	
             $d_event_start = new DateTime($temp_dt_inizio[0] . ' ' . substr($temp_dt_inizio[1],0,5) . ':00');
             $d_event_end = new DateTime($temp_dt_fine[0] . ' ' . substr($temp_dt_fine[1],0,5) . ':00');
             $diff =   round(abs($d_event_end->format('U') - $d_event_start->format('U'))) / (60*60);
             $giorno = $d_event_start->format('d'); 
-            $mese = $d_event_start->format('m');
-                    
-            
-                    
+            $mese = $d_event_start->format('m');     
             $anno=$d_event_start->format('Y');	                   
             $ore = $d_event_start->format('H'); 
             $minuti = $d_event_start->format('i'); 
@@ -312,17 +325,10 @@ switch($richiesta)  {
                 $tipologia = "Lab";
             else
                 $tipologia=$titolo_arr[0];
-            $note = $event->content;
+            $note = $event->getDescription();
         
             print("ok||".$titolo."||".$luogo."||".$giorno."||".$mese."||".$anno."||".$ore."||".$minuti."||".$diff."||".$tipologia."||".$note);
-        
-	}  catch (Zend_Gdata_App_HttpException $e){
-            print("<p class='Alert_red'>Errore: Calendario non trovato</p>");                        
-        } catch (Zend_Gdata_App_AuthException $e){
-            print("<p class='Alert_red'>Login fallito: Credenziali Google non corrette</p>");
-        }   catch (Zend_Gdata_App_Exception $e) {
-            print("<p class='Alert_red'>Errore: ".$e->getMessage()."</p>");		
-        } catch (Exception $e) {
+        	}   catch (Exception $e) {
             print("<p class='Alert_red'>Errore: ".$e->getMessage()."</p>");
 	}
     break;
@@ -363,36 +369,73 @@ switch($richiesta)  {
 		
 	//Inizio richiesta di accesso a Goggle.
 	try{	
-            $gdata = Gconnect();
+            //$gdata = Gconnect();
+            
+            $gdata = calendar_connect();
             $service = $gdata['service'];
-            $url = $gdata['url'];                            
-            $eventURL = $url."/" . $id_evento;					
-            $event = $service->getCalendarEventEntry($eventURL);							
+            $id = $gdata['id'];
+					
+            $event = $service->events->get($id, $id_evento);							
             // Populate the event with the desired information
             // Note that each attribute is crated as an instance of a matching class
-            $event->title = $service->newTitle( $tipo . ' - ' . $nome);
-            $event->where = array($service->newWhere($luogo));								 
-            $when = $service->newWhen();
-            $when->startTime = "{$startDate}T{$startTime}:00.000{$tzOffset}:00";
-            $when->endTime = "{$endDate}T{$endTime}:00.000{$tzOffset}:00";
-            $event->when = array($when);
-            $event->content = $service->newContent( $note );			
+            $event->setSummary( $tipo . ' - ' . $nome);
+			$event->setLocation($luogo);
+			$start = new Google_Service_Calendar_EventDateTime();
+    		$start->setDateTime("{$startDate}T{$startTime}:00.000{$tzOffset}:00");
+    		$event->setStart($start);
+            $end = new Google_Service_Calendar_EventDateTime();
+    		$end->setDateTime("{$endDate}T{$endTime}:00.000{$tzOffset}:00");
+    		$event->setEnd($end);
+            $event->setDescription($note);			
             // Upload the event to the calendar server
             // A copy of the event as it is recorded on the server is returned
-            $event->save();
+            $updatedEvent = $service->events->update($id, $event->getId(), $event);
             print("<p class='Alert_green'>Update dell'evento effettuato con successo</p>");
-        }  catch (Zend_Gdata_App_HttpException $e){
-            print("<p class='Alert_red'>Errore: Calendario non trovato</p>");
-        } catch (Zend_Gdata_App_AuthException $e){
-            print("<p class='Alert_red'>Login fallito: Credenziali Google non corrette</p>");
-        }   catch (Zend_Gdata_App_Exception $e) {
-            print("<p class='Alert_red'>Errore: ".$e->getMessage()."</p>");		
-	} catch (Exception $e) {
+        }   catch (Exception $e) {
             print("<p class='Alert_red'>Errore: ".$e->getMessage()."</p>");	
 	}
     break;
 	
+case 7:	
+	try {
+            $calendar_selected = $_POST['Calendar'];
+            Write_google_calendar_name($calendar_selected);
+			$gdata = calendar_connect();
+            if(isset($gdata))
+                print("<p class='Alert_green'>Connessione riuscita</p>");
+        } catch (Exception $e) {
+            print("<p class='Alert_red'>Errore: ".$e->getMessage()."</p>");
+        }       
+    break;
+
+
+case 8:	
+	$lista=get_list_calendars();
+	print($lista);
+    break;
+
 }
+
+function get_list_calendars() {
+		  try {
+			$valore_blog=get_current_blog_id();
+			$client = Load_client($valore_blog);
+    		$client->setAccessToken(Load_token($valore_blog));
+			// Crea un istanza del servizio Calendar
+    
+   			$calendarService = new Google_Service_Calendar($client);
+    		$gdata['service'] = $calendarService;
+    		$calendarList = $calendarService->calendarList->listCalendarList();
+    		foreach ($calendarList->getItems() as $calendarListEntry) {
+    		if (($calendarListEntry->getSummary()!="Compleanni") && ($calendarListEntry->getId()!="it.italian#holiday@group.v.calendar.google.com"))
+    		$lista = $lista.$calendarListEntry->getSummary()." - ".$calendarListEntry->getId()."    ";   		
+			}
+    		return $lista;	
+		} catch (Exception $e) {
+            print("<p class='Alert_red'>Errore: ".$e->getMessage()."</p>");
+        }       
+}
+
 
 /*
 Funzione che restituisce il mese,in formato italiano, sulla base del valore numerico che possiede in input
@@ -429,7 +472,7 @@ function get_Month_name($mese)  {
 
 
 /*
-Funzione che riceve in input un numero, e se tale numero è ad una singola cifra, restituisce l'equivalente a due cifre.
+Funzione che riceve in input un numero, e se tale numero ÃƒÂ¨ ad una singola cifra, restituisce l'equivalente a due cifre.
 */
 function fix_string($numero)    {
     if($numero == 1 || $numero == 2 ||$numero == 3 || 
@@ -442,28 +485,41 @@ function fix_string($numero)    {
 /*
  * Connessione a Google Calendar
  */
-function Gconnect() {
-    $dati_accesso = Load_google_access_data();
-    $user = $dati_accesso[0];
-    $pwd = $dati_accesso[1];
-    $calendar = $dati_accesso[2];
- 
-    // Create an authenticated HTTP client
-    $client = Zend_Gdata_ClientLogin::getHttpClient($user, $pwd, Zend_Gdata_Calendar::AUTH_SERVICE_NAME);						 
-    // Create an instance of the Calendar service
+function Gconnect() { 
+     $client=set_settings_client();
+        if (! $client->getAccessToken()) {
+            $auth = $client->createAuthUrl();
+			print ("<p class='Alert_green'><a name=\"". $auth ."\" id=\"Link_Autentica\" href=\"". $auth ."\" target=\"_blank\">Attiva utente</a></p>");                 
+			//print ("<td style='text-decoration:none'><a href='#' name='carica_calendari' id='Link_Carica_Calendari' onclick=carica_lista_calendari('".plugins_url(null, __FILE__)."')>Carica i calendari</a></td>");
+		}
+}
+
+
+function calendar_connect() {
+	$valore_blog=get_current_blog_id();
+	$client = Load_client($valore_blog);
+    $dati_accesso = Load_google_access_data($valore_blog);
+    $calendar = $dati_accesso[2];	
+    $client->setAccessToken(Load_token($valore_blog));
+	// Crea un istanza del servizio Calendar
+    $calendarService = new Google_Service_Calendar($client);
+    $gdata['service'] = $calendarService;
+    $calendarList = $calendarService->calendarList->listCalendarList();
     
-    $gdata['service'] = new Zend_Gdata_Calendar($client);		
-    $calFeed = $gdata['service']->getCalendarListFeed();
     //imposta il caledario specificato 
-    foreach ($calFeed as $cal) {
-        if ($cal->title->text == $calendar)
-            $gdata['url'] = $cal->link[0]->href;
+    foreach ($calendarList->getItems() as $calendarListEntry) {
+    //se l'id del calendario corrente Ã¨ uguale a quello impostato legge il nome
+        if ($calendarListEntry->getId() == $calendar){
+            $gdata['id'] = $calendarListEntry->getId();
+            $gdata['name'] = $calendarListEntry->getSummary();
+		}
     }
     
-    if (!$gdata['url'])
+    if (!$gdata['name'])
         throw new Exception("Calendario non trovato");
-    
+   
     return $gdata;
 }
+
 
 ?>

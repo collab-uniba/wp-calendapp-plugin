@@ -1,20 +1,20 @@
 // JavaScript Document
 
 var $j = jQuery.noConflict();
-var pwd = "pwd";
+var client_secret = "pwd";
 var path = "path";
 var path2 = "path_fisico"; 
-var user = "usr";
+var client_id = "usr";
 
 /*
 Funzione che viene invocata quando viene selezionato un link di modifica di un evento
 */
-function modifica_evento(num)   {
+function modifica_evento(id)   {
   var scadenza = new Date();
   var adesso = new Date();
   scadenza.setTime(adesso.getTime() + (parseInt(1) * 60000));
-  document.cookie = escape(num) + '; expires=' + scadenza.toGMTString() + '; path=/';
-  window.location = "admin.php?page=Enter_event&Id_Gcal="+num;
+  document.cookie = escape(id) + '; expires=' + scadenza.toGMTString() + '; path=/';
+  window.location = "admin.php?page=Enter_event&Id_Gcal="+id;
 }
 
 /*
@@ -27,8 +27,8 @@ function compila_form_modifica(num) {
   $j('#alert').html('<p>Caricamento dell\'evento in corso..</p>');
   $j.post(path_php, { 'path': path_fisico,'Richiesta': 5, 'Id': num }, function(data){
       var event = data.split("||");
-      if (event[0]=="ok"){
-          $j('#alert').text('');
+      //if (event[0]=="ok"){
+        $j('#alert').text('');
         $j('#Ins_txt_name_event').val(event[1]);
         $j('#Ins_txt_locaz_event').val(event[2]);
         $j('#hidd_date').val(event[5]+"-"+event[4]+"-"+event[3]);
@@ -39,8 +39,8 @@ function compila_form_modifica(num) {
         $j('#Ins_Durata').val(event[8]);
         $j('#Ins_Tipologia').val(event[9]);
         $j('#Ins_Note').val(event[10]);
-      } else
-           $j('#alert').html(event[0]);
+      //} else
+        //   $j('#alert').html(event[0]);
   });
 }
 
@@ -51,19 +51,19 @@ function elimina_evento(href)   {
   var path_php = path_http + '/jQuery_interop.php';
   $j('#content').text('');
   $j('#alert').html('<p>Caricamento degli eventi in corso..</p>');
-  $j.post(path_php, { 'Richiesta': 3,'href': href }, function(data){
-    if (data!="")   {
-        $j('#alert').html(data);
-    } else{
+  $j.post(path_php, { 'Richiesta': 3,'href': href}, function(data){
+    //if (data!="")   {
+    //    $j('#alert').html(data);
+    //    $j('#alert').html('<p class="Alert_green">prova</p>');
+    //} else{
         var title = 'all';
-        $j.post(path_php, { 'Richiesta': 4, 'examTitle':title, 'backend':1 }, function(data){
-            $j('#alert').html('<p class="Alert_green">Evento eliminato');
+         $j.post(path_php, { 'Richiesta': 4, 'examTitle':title, 'backend':1 }, function(data){
+            $j('#alert').html('<p class="Alert_green">Evento eliminato</p>');
             $j('#content').append(data);
         });
-    }			 
+    //}			 
   });
 }
-
 
 /*
 Funzione che viene invocata al termine del caricamento di una pagina
@@ -152,7 +152,7 @@ $j(document).ready(function($j) {
 	return number; 
     }	
 		
-    if(pwd =="" || user == "")  {
+    if(client_secret == "" || client_id == "")  {
         $j('#flag').val('0');
     }
     
@@ -165,7 +165,7 @@ $j(document).ready(function($j) {
 	var Mod_note = $j('#Ins_Note').val();
 	var Mod_Tipo = $j('#Ins_Tipologia option:selected').text();
 	var Mod_Durata = $j('#Ins_Durata option:selected').text();
-        var Id_evento = $j('#Id_evento').val();	
+    var Id_evento = $j('#Id_evento').val();	
 	var date = ($j('#hidd_date').val()).split("-");
 	var Mod_Year_Date = date[0]; 
 	var Mod_Month_Date = date[1];
@@ -207,7 +207,7 @@ $j(document).ready(function($j) {
         var date_start = $j('#hidd_date_start').val();
         var date_end = $j('#hidd_date_end').val();
 	var path_php = path + '/jQuery_interop.php'; 
-	$j('#pwd').val();
+	$j('#client_id').val();
         $j.post(path_php, { 'data_inizio': date_start,'data_fine' : date_end , 'Richiesta': 2 }, function(data){
             $j('#alert').html(data);
         });
@@ -215,27 +215,63 @@ $j(document).ready(function($j) {
     });
 	
     /*
-    Funzione che si attiva quando l'utente inserisce le credenziali di accesso all'account di Google.
+    Funzione che si attiva quando l'utente inserisce le credenziali di autenticazione a Google.
     */
-    $j('#btnsave').click(function($){		
-        pwd =  $j('#pwd').val();
-	user = $j('#usr').val();
-        cal = $j('#calendar').val();
-	path = $j('#path').val();	
-	if(pwd == ""  || user == "")    {	
-            $j('#alert').html("<p class='Alert_orange'> Entrambi i campi sono obbligatori</p>");
+    $j('#btnsave_cred').click(function($){		
+        client_secret =  $j('#client_secret').val();
+		client_id = $j('#client_id').val();
+		path = $j('#path').val();		
+	if (client_secret == ""  || client_id == "")    {
+            $j('#alert').html("<p class='Alert_orange'> Tutti i campi sono obbligatori</p>");
 	}   else    {
             var valore = '1'; 
             var path_php = path + '/jQuery_interop.php'; 
             $j('#flag').val(valore);
-            $j('#pwd').val();
-            $j.post(path_php, { 'Username':  user,'Password' : pwd , 'Calendar': cal, 'Richiesta': 0 }, function(data){
+            $j('#client_secret').val();
+            $j.post(path_php, { 'Client_id':  client_id , 'Client_secret' : client_secret , 'Richiesta': 0 }, function(data){
                 $j('#alert').html(data);
             });
         }	
 	return false;
     });
-	
+
+
+	/*
+    Funzione che si attiva quando l'utente, dopo essersi autenticato, carica i calendari disponibili.
+    */
+    $j('#btnload_calendars').click(function($){	
+            var valore = '1'; 
+            var path_php = path + '/jQuery_interop.php';
+            var calendars='';
+            $j('#flag').val(valore);
+            $j('#client_secret').val();
+            	$j.post(path_php, { 'Richiesta': 8 }, function(data){
+            	calendars = data.split("    ");
+				$j('option', '#cal').remove();
+            	for(i=0;i<calendars.length-1;i++){                          
+                	$j("#cal").append("<option id='"+ i +"'>"+calendars[i]+"</option>");
+                	}
+	            });
+	return false;
+	});
+
+
+   /*
+    Funzione che si attiva quando l'utente, dopo aver selezionato il calendario, si connette.
+    */    
+   $j('#btnsave_link_calendar').click(function($){
+    		var cal = $j("#cal").val();
+    		cal = cal.split(" - ");
+            var valore = '1'; 
+            var path_php = path + '/jQuery_interop.php'; 
+            $j('#flag').val(valore);
+            $j('#client_secret').val();
+            $j.post(path_php, { 'Calendar': cal[1],  'Richiesta': 7 }, function(data){
+                $j('#alert').html(data);
+            });
+	return false;
+    });
+
     /*
     Funzione che si attiva quando l'utente inserisce un nuovo evento
     */

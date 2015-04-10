@@ -11,7 +11,7 @@ function Set_interval_form()
     wp_enqueue_script("jquery-ui-datepicker");
     wp_enqueue_style('jquery.ui.theme', plugins_url(null, __FILE__).'/smoothness/jquery-ui-1.10.0.custom.min.css');
   
-	$dati = Load_interval_date(); 
+	$dati = Load_interval_date(get_current_blog_id()); 
 	$alert = "";  
 	$data_inizio=""; 
 	$data_fine="";  

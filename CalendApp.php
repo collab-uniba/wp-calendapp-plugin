@@ -1,14 +1,14 @@
 <?php
 /**
  * @package CalendApp
- * @version 1.1
+ * @version 1.2
  */
 /*
 Plugin Name: CalendApp
 Plugin URI: http://wordpress.org/extend/plugins/calendapp/
 Description: Questo modulo permette all'amministratore del sito di inserire eventi relativi a prove educative, consentendo a tutti gli utenti del sistema, autenticati e non, di prendere visione di tali eventi. Ogni evento inserito verrà postato sul calendario di google relativo all'account dell'amministratore.
-Author: Giovanni Marzulli, Maria Antonietta Fanelli, Floriano Fauzzi
-Version: 1.1
+Author: Francesco Altamura, Giovanni Marzulli, Maria Antonietta Fanelli, Floriano Fauzzi
+Version: 1.2
 Author URI: http://margiov.altervista.org
 */
 
